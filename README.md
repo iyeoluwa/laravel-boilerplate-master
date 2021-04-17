@@ -1,46 +1,230 @@
-## Laravel Boilerplate (Current: Laravel 8.*) ([Demo](https://demo.laravel-boilerplate.com))
+## This readme teaches you on how to use the bring api
 
-[![Latest Stable Version](https://poser.pugx.org/rappasoft/laravel-boilerplate/v/stable)](https://packagist.org/packages/rappasoft/laravel-boilerplate)
-[![Latest Unstable Version](https://poser.pugx.org/rappasoft/laravel-boilerplate/v/unstable)](https://packagist.org/packages/rappasoft/laravel-boilerplate) 
-<br/>
-[![StyleCI](https://styleci.io/repos/30171828/shield?style=plastic)](https://github.styleci.io/repos/30171828)
-![Tests](https://github.com/rappasoft/laravel-boilerplate/workflows/Tests/badge.svg?branch=master)
-<br/>
-![GitHub contributors](https://img.shields.io/github/contributors/rappasoft/laravel-boilerplate.svg)
-![GitHub stars](https://img.shields.io/github/stars/rappasoft/laravel-boilerplate.svg?style=social)
+### the api main folder is located in the app directory > services directory > bring api
+### The Booking Api
 
-### Demo Credentials
+`use App\Services\Bring\API\Client\BookingClient;
+use App\Services\Bring\API\Contract\Booking;
+use App\Services\Bring\API\Data\BringData;
 
-**Admin:** admin@admin.com  
-**Password:** secret
+These 3 variable credentials is provided via the My Bring login interface. (it is advisible that you put the credentials in your .env file)
+$bringUid = getenv('BRING_UID');
+$bringApiKey = getenv('BRING_API_KEY');
+$bringCustomerNumber = getenv('BRING_CUSTOMER');
 
-**User:** user@user.com  
-**Password:** secret
 
-### Official Documentation
 
-[Click here for the official documentation](http://laravel-boilerplate.com)
+$bringTestMode = true; // Setting this to false will send orders to Bring! Careful. This is for testing purposes.
 
-### Slack Channel
+$weight = 1; // 1 kg.
+$length = 31;
+$width = 21;
+$height = 6;
 
-Please join us in our Slack channel to get faster responses to your questions. Get your invite here: https://laravel-5-boilerplate.herokuapp.com
+$bringProductId = BringData::PRODUCT_SERVICEPAKKE;
 
-### Introduction
 
-Laravel Boilerplate provides you with a massive head start on any size web application. Out of the box it has features like a backend built on CoreUI with Spatie/Permission authorization. It has a frontend scaffold built on Bootstrap 4. Other features such as Two Factor Authentication, User/Role management, searchable/sortable tables built on my [Laravel Livewire tables plugin](https://github.com/rappasoft/laravel-livewire-tables), user impersonation, timezone support, multi-lingual support with 20+ built in languages, demo mode, and much more.
 
-### Issues
+// See http://developer.bring.com/api/booking/ ( Authentication section ) . You will need Client id, api key and client url.
+$credentials = new App\Services\bring\API\Client\Credentials("http://mydomain.no", $bringUid, $bringApiKey);
 
-If you come across any issues please [report them here](https://github.com/rappasoft/laravel-boilerplate/issues).
+// Create a booking client.
+$client = new BookingClient($credentials);
 
-### Contributing
 
-Thank you for considering contributing to the Laravel Boilerplate project! Please feel free to make any pull requests, or e-mail me a feature request you would like to see in the future to Anthony Rappa at rappa819@gmail.com.
 
-### Security Vulnerabilities
+// Send package in 5 hours..
+$shipDate = new \DateTime('now');
+$shipDate->modify('+5 hours');
 
-If you discover a security vulnerability within this boilerplate, please send an e-mail to Anthony Rappa at rappa819@gmail.com, or create a pull request if possible. All security vulnerabilities will be promptly addressed.
 
-### License
 
-MIT: [http://anthony.mit-license.org](http://anthony.mit-license.org)
+// What bring product we want to use for shipping the package(s).
+
+$bringProduct = new Booking\BookingRequest\Consignment\Product();
+$bringProduct->setId($bringProductId);
+$bringProduct->setCustomerNumber($bringCustomerNumber);
+
+// Create a new package.
+
+$consignmentPackage = new Booking\BookingRequest\Consignment\Package();
+$consignmentPackage->setWeightInKg($weight);
+$consignmentPackage->setDimensionHeightInCm($height);
+$consignmentPackage->setDimensionLengthInCm($length);
+$consignmentPackage->setDimensionWidthInCm($width);
+
+
+// Create a consignment
+
+$consignment = new Booking\BookingRequest\Consignment();
+$consignment->addPackage($consignmentPackage);
+$consignment->setProduct($bringProduct);
+$consignment->setShippingDateTime($shipDate);
+
+
+// Recipient
+
+$recipient = new Booking\BookingRequest\Consignment\Address();
+$recipient->setAddressLine("Veien 32");
+$recipient->setCity("Bergen");
+$recipient->setCountryCode("NO");
+$recipient->setName("Privat person");
+$recipient->setPostalCode(5097);
+$recipient->setReference("Customer-id-in-DB");
+$consignment->setRecipient($recipient);
+
+
+// Sender
+
+$sender = new Booking\BookingRequest\Consignment\Address();
+$sender->setAddressLine("Veien 32");
+$sender->setCity("Bergen");
+$sender->setCountryCode("NO");
+$sender->setName("Min bedrift");
+$sender->setPostalCode(5097);
+$contact = new Booking\BookingRequest\Consignment\Contact();
+$contact->setEmail('mycompany@test.com');
+$contact->setPhoneNumber('40000000');
+$sender->setContact($contact);
+$consignment->setSender($sender);
+
+
+
+
+
+
+
+$request = new Booking\BookingRequest();
+$request->addConsignment($consignment);
+$request->setTestIndicator($bringTestMode);
+
+try {
+
+
+    echo "Using Bring UID: $bringUid, Key: $bringApiKey, Customer number: $bringCustomerNumber\n";
+
+    $result = $client->bookShipment($request);
+    print_r($result);
+
+// Catch response errors.
+} catch (App\Services\Bring\API\Client\BookingClientException $e) {
+print_r($e->getErrors());
+throw $e;
+// Catch errors that relates to the contract / request.
+} catch (App\Services\Bring\API\Contract\ContractValidationException $e) {
+throw $e;
+}
+`
+## Booking Api Get Customers 
+
+use App\Services\Bring\API\Client\BookingClient;
+
+// See http://developer.bring.com/api/booking/ ( Authentication section ) . You will need Client id, api key and client url.
+$credentials = new App\Services\Bring\API\Client\Credentials("http://mydomain.no", getenv('BRING_UID'), getenv('BRING_API_KEY'));
+$client = new BookingClient($credentials);
+
+print_r($client->getCustomers());
+
+
+
+
+
+
+
+
+
+### Tracking APi
+
+
+
+use App\Services\Bring\API\Contract\Tracking;
+
+// Mybring credentials are not required can be null. See rate limiting in bring developer docs.
+$bringUid = getenv('BRING_UID') ?: null;
+$bringApiKey = getenv('BRING_API_KEY') ?: null;
+
+$client = new App\Services\Bring\API\Client\TrackingClient(new App\Services\Bring\API\Client\Credentials("http://mydomain.no", $bringUid, $bringApiKey));
+
+
+
+
+$request = new Tracking\TrackingRequest();
+$request->setQuery('TESTPACKAGELOADEDFORDELIVERY');
+$request->setLanguage(App\Services\Bring\API\Data\BringData::LANG_NORWEGIAN);
+
+
+try {
+
+    $trackingInfo = $client->getTracking($request);
+
+    foreach ($trackingInfo['consignmentSet'] as $consignmentSet) {
+        // There was an error in this consignment set.
+        if (isset($consignmentSet['error'])) {
+
+            print_r($error);
+
+        } else {
+            print_r($consignmentSet);
+        }
+    }
+
+} catch (App\Services\Bring\API\Client\TrackingClientException $e) {
+
+    throw $e->getRequestException();
+
+} catch (App\Services\Bring\API\Contract\ContractValidationException $e) {
+throw $e;
+}
+
+
+
+
+
+### Shipping Guide Api
+
+
+
+use App\Services\Bring\API\Contract\ShippingGuide;
+use App\Services\Bring\API\Data\ShippingGuideData;
+use App\Services\Bring\API\Data\BringData;
+
+
+// See http://developer.bring.com/api/booking/ ( Authentication section ) . You will need Client id, api key and client url.
+$client = new App\Services\BringAPI\Client\ShippingGuideClient(new App\Services\Bring\API\Client\Credentials("http://mydomain.no"));
+
+$request = new ShippingGuide\PriceRequest();
+
+$request->setFromCountry('NO');
+$request->setFrom('5097');
+
+$request->setToCountry('NO');
+$request->setTo('5155');
+
+$request->setWeightInGrams(1500);
+
+$request->addAdditional(ShippingGuideData::EVARSLING); // Makes it cheaper, and environment friendly! :)
+
+
+// Set possible shipping products
+$request->addProduct(BringData::PRODUCT_SERVICEPAKKE)
+->addProduct(BringData::PRODUCT_MINIPAKKE)
+->addProduct(BringData::PRODUCT_PA_DOREN);
+
+
+// If we use EDI..
+$request->setEdi(true);
+
+
+
+try {
+
+    $prices = $client->getPrices($request);
+
+    print_r($prices);
+
+} catch (App\Services\Bring\API\Client\ShippingGuideClientException $e) {
+throw $e; // just re-throw for testing.
+
+} catch (App\Services\Bring\API\Contract\ContractValidationException $e) {
+throw $e;
+}
